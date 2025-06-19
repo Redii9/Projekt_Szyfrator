@@ -1,24 +1,44 @@
 import os
 import base64
-from typing import Callable
+import time
+import matplotlib.pyplot as plt
+from typing import Callable, List, Dict
+from functools import reduce
 from exceptions import *
+
 
 class Cipher:
     def __init__(self, key: str):
         if not key or not isinstance(key, str):
             raise InvalidKeyError("Klucz musi być niepustym ciągiem znaków")
         self.key = key
+        self.encryption_times = []
+        self.decryption_times = []
 
     def encrypt(self, text: str) -> str:
-        #Szyfruje tekst przy użyciu klucza
-        raise NotImplementedError("Metoda encrypt musi być zaimplementowana w klasie pochodnej")
+        """Szyfruje tekst przy użyciu klucza"""
+        start_time = time.time()
+        result = self._encrypt(text)
+        end_time = time.time()
+        self.encryption_times.append(end_time - start_time)
+        return result
+
+    def _encrypt(self, text: str) -> str:
+        raise NotImplementedError("Metoda _encrypt musi być zaimplementowana w klasie pochodnej")
 
     def decrypt(self, encrypted_text: str) -> str:
-        #Deszyfruje tekst przy użyciu klucza
-        raise NotImplementedError("Metoda decrypt musi być zaimplementowana w klasie pochodnej")
+        """Deszyfruje tekst przy użyciu klucza"""
+        start_time = time.time()
+        result = self._decrypt(encrypted_text)
+        end_time = time.time()
+        self.decryption_times.append(end_time - start_time)
+        return result
+
+    def _decrypt(self, encrypted_text: str) -> str:
+        raise NotImplementedError("Metoda _decrypt musi być zaimplementowana w klasie pochodnej")
 
     def save_to_file(self, filename: str, text: str) -> None:
-        #Zapisuje tekst do pliku
+        """Zapisuje tekst do pliku"""
         try:
             with open(filename, 'w', encoding='utf-8') as file:
                 file.write(text)
@@ -26,7 +46,7 @@ class Cipher:
             raise FileOperationError(f"Błąd podczas zapisu do pliku: {e}")
 
     def read_from_file(self, filename: str) -> str:
-        #Odczytuje tekst z pliku
+        """Odczytuje tekst z pliku"""
         try:
             with open(filename, 'r', encoding='utf-8') as file:
                 return file.read()
@@ -35,8 +55,53 @@ class Cipher:
 
     @staticmethod
     def apply_lambda_operation(text: str, operation: Callable[[str], str]) -> str:
-        #Stosuje operację lambda na tekście
+        """Stosuje operację lambda na tekście"""
         return operation(text)
+
+    @staticmethod
+    def filter_text(text: str, condition: Callable[[str], bool]) -> str:
+        """Filtruje tekst używając funkcji filter"""
+        return ''.join(filter(condition, text))
+
+    @staticmethod
+    def map_text(text: str, transformation: Callable[[str], str]) -> str:
+        """Transformuje tekst używając funkcji map"""
+        return ''.join(map(transformation, text))
+
+    def get_performance_stats(self) -> Dict[str, float]:
+        """Zwraca statystyki czasu wykonania"""
+        if not self.encryption_times or not self.decryption_times:
+            return {}
+
+        stats = {
+            'avg_encrypt': reduce(lambda x, y: x + y, self.encryption_times) / len(self.encryption_times),
+            'avg_decrypt': reduce(lambda x, y: x + y, self.decryption_times) / len(self.decryption_times),
+            'max_encrypt': max(self.encryption_times),
+            'min_encrypt': min(self.encryption_times),
+            'max_decrypt': max(self.decryption_times),
+            'min_decrypt': min(self.decryption_times)
+        }
+        return stats
+
+    def plot_performance(self, save_path: str = None) -> None:
+        """Generuje wykres wydajności szyfrowania i deszyfrowania"""
+        if not self.encryption_times or not self.decryption_times:
+            raise ValueError("Brak danych do wygenerowania wykresu")
+
+        plt.figure(figsize=(10, 5))
+        plt.plot(self.encryption_times, label='Szyfrowanie', marker='o')
+        plt.plot(self.decryption_times, label='Deszyfrowanie', marker='x')
+        plt.title(f'Wydajność algorytmu {self.__class__.__name__}')
+        plt.xlabel('Numer operacji')
+        plt.ylabel('Czas wykonania (s)')
+        plt.legend()
+        plt.grid(True)
+
+        if save_path:
+            plt.savefig(save_path)
+            print(f"Wykres zapisano do {save_path}")
+        else:
+            plt.show()
 
 
 class CaesarCipher(Cipher):
@@ -44,8 +109,8 @@ class CaesarCipher(Cipher):
         super().__init__(key)
         self.shift = sum(ord(char) for char in key) % 26
 
-    def encrypt(self, text: str) -> str:
-        #Szyfr Cezara - przesunięcie każdej litery o wartość klucza
+    def _encrypt(self, text: str) -> str:
+        """Szyfr Cezara - przesunięcie każdej litery o wartość klucza"""
         try:
             result = []
             for char in text:
@@ -62,8 +127,8 @@ class CaesarCipher(Cipher):
         except Exception as e:
             raise EncryptionError(f"Błąd podczas szyfrowania: {e}")
 
-    def decrypt(self, encrypted_text: str) -> str:
-        #Odwrócenie szyfru Cezara
+    def _decrypt(self, encrypted_text: str) -> str:
+        """Odwrócenie szyfru Cezara"""
         try:
             result = []
             for char in encrypted_text:
@@ -82,8 +147,8 @@ class CaesarCipher(Cipher):
 
 
 class XORCipher(Cipher):
-    def encrypt(self, text: str) -> str:
-        #Szyfrowanie XOR - każdy znak tekstu jest XORowany z odpowiednim znakiem klucza
+    def _encrypt(self, text: str) -> str:
+        """Szyfrowanie XOR - każdy znak tekstu jest XORowany z odpowiednim znakiem klucza"""
         try:
             key_repeated = (self.key * (len(text) // len(self.key) + 1))[:len(text)]
             encrypted_bytes = [ord(t) ^ ord(k) for t, k in zip(text, key_repeated)]
@@ -92,8 +157,8 @@ class XORCipher(Cipher):
         except Exception as e:
             raise EncryptionError(f"Błąd podczas szyfrowania XOR: {e}")
 
-    def decrypt(self, encrypted_text: str) -> str:
-        #Deszyfrowanie XOR - odwrócenie operacji XOR
+    def _decrypt(self, encrypted_text: str) -> str:
+        """Deszyfrowanie XOR - odwrócenie operacji XOR"""
         try:
             key_repeated = (self.key * (len(encrypted_text) // len(self.key) + 1))[:len(encrypted_text)]
             encrypted_bytes = base64.b64decode(encrypted_text.encode('utf-8'))
@@ -104,10 +169,10 @@ class XORCipher(Cipher):
 
 
 class ReverseCipher(Cipher):
-    def encrypt(self, text: str) -> str:
-        #Odwrócenie kolejności znaków w tekście
+    def _encrypt(self, text: str) -> str:
+        """Odwrócenie kolejności znaków w tekście"""
         return text[::-1]
 
-    def decrypt(self, encrypted_text: str) -> str:
-        #Odwrócenie kolejności znaków w tekście (deszyfrowanie to to samo co szyfrowanie)
+    def _decrypt(self, encrypted_text: str) -> str:
+        """Odwrócenie kolejności znaków w tekście (deszyfrowanie to to samo co szyfrowanie)"""
         return encrypted_text[::-1]

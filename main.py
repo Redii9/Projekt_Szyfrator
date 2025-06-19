@@ -87,7 +87,7 @@ def save_to_file(text):
 
 def apply_lambda_operations(cipher, text):
     #Użycie funkcji lambda
-    print("\nPrzykłady użycia funkcji lambda:")
+    print("\nUżycie funkcji lambda:")
 
     # Lambda do zamiany na wielkie litery
     upper = lambda x: x.upper()
