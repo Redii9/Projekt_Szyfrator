@@ -1,6 +1,7 @@
 from cipher import CaesarCipher, XORCipher, ReverseCipher
 from exceptions import CipherError
 import os
+import time
 
 
 def get_cipher_choice():
@@ -102,6 +103,55 @@ def apply_lambda_operations(cipher, text):
     print(f"Tekst bez spacji: {cipher.apply_lambda_operation(text, no_spaces)}")
 
 
+def show_performance_stats(cipher):
+    """Wyświetla statystyki wydajności szyfrowania"""
+    stats = cipher.get_performance_stats()
+    if stats:
+        print("\nStatystyki wydajności:")
+        print(f"Średni czas szyfrowania: {stats['avg_encrypt']:.6f}s")
+        print(f"Średni czas deszyfrowania: {stats['avg_decrypt']:.6f}s")
+        print(f"Minimalny czas szyfrowania: {stats['min_encrypt']:.6f}s")
+        print(f"Maksymalny czas szyfrowania: {stats['max_encrypt']:.6f}s")
+        print(f"Minimalny czas deszyfrowania: {stats['min_decrypt']:.6f}s")
+        print(f"Maksymalny czas deszyfrowania: {stats['max_decrypt']:.6f}s")
+
+        choice = input("\nCzy chcesz wygenerować wykres wydajności? (t/n): ").lower()
+        if choice == 't':
+            filename = input("Podaj nazwę pliku do zapisu wykresu (lub pozostaw puste aby wyświetlić): ")
+            if not filename:
+                cipher.plot_performance()
+            else:
+                if not filename.endswith('.png'):
+                    filename += '.png'
+                cipher.plot_performance(filename)
+    else:
+        print("Brak danych o wydajności. Wykonaj najpierw operacje szyfrowania/deszyfrowania.")
+
+
+def benchmark_cipher(cipher_class, key, text, iterations=100):
+    """Test wydajnościowy dla danego szyfru"""
+    print(f"\nRozpoczynam test wydajności dla {cipher_class.__name__}...")
+    cipher = cipher_class(key)
+
+    # Test szyfrowania
+    start_time = time.time()
+    for _ in range(iterations):
+        cipher.encrypt(text)
+    encrypt_time = time.time() - start_time
+
+    # Test deszyfrowania
+    encrypted = cipher.encrypt(text)
+    start_time = time.time()
+    for _ in range(iterations):
+        cipher.decrypt(encrypted)
+    decrypt_time = time.time() - start_time
+
+    print(f"Wyniki dla {iterations} iteracji:")
+    print(f"Całkowity czas szyfrowania: {encrypt_time:.4f}s")
+    print(f"Średni czas szyfrowania: {encrypt_time / iterations:.6f}s")
+    print(f"Całkowity czas deszyfrowania: {decrypt_time:.4f}s")
+    print(f"Średni czas deszyfrowania: {decrypt_time / iterations:.6f}s")
+
 def main():
     print("=== Szyfrator wiadomości tekstowych ===")
 
@@ -119,6 +169,13 @@ def main():
                 cipher = XORCipher(get_key())
             elif cipher_choice == 3:
                 cipher = ReverseCipher(get_key())
+
+            if cipher_choice in (1, 2, 3):
+                choice = input("Czy chcesz wykonać test wydajności? (t/n): ").lower()
+                if choice == 't':
+                    text = "Testowy tekst do pomiaru wydajnosci algorytmu." * 10
+                    benchmark_cipher(cipher.__class__, cipher.key, text)
+                    continue
 
             while True:
                 operation_choice = get_operation_choice()
@@ -140,6 +197,8 @@ def main():
 
                     save_to_file(result)
                     apply_lambda_operations(cipher, result)
+
+                    show_performance_stats(cipher)
 
                 except CipherError as e:
                     print(f"Błąd: {e}")
