@@ -47,9 +47,10 @@ odszyfrowane = cipher.decrypt(zaszyfrowane)
 
 ## Struktura projektu
 ```
-szyfrator/
-├── __init__.py
+Projekt_Szyfrator/
+├── init.py
 ├── cipher.py        # Implementacja szyfrów
+├── main.py 
 ├── exceptions.py    # Wyjątki
 ├── tests.py         # Testy jednostkowe
 └── performance_test.py # Testy wydajnościowe
