@@ -48,29 +48,30 @@ def get_key():
         print("Klucz nie może być pusty")
 
 
-def get_text():
-    #Pobiera tekst od użytkownika
+def get_text(cipher=None):
+    """Pobiera tekst od użytkownika"""
     print("\nDostępne opcje:")
     print("1. Wprowadź tekst ręcznie")
     print("2. Wczytaj z pliku")
+    print("3. Edytuj plik")
 
     while True:
         try:
-            choice = int(input("Wybierz opcję (1-2): "))
+            choice = int(input("Wybierz opcję (1-3): "))
             if choice == 1:
                 return input("Wprowadź tekst: ")
             elif choice == 2:
-                filename = input("Podaj nazwę pliku: ")
-                if os.path.exists(filename):
-                    with open(filename, 'r', encoding='utf-8') as file:
-                        return file.read()
-                print("Plik nie istnieje")
+                return handle_file_operations(cipher, 'read')
+            elif choice == 3:
+                edited_content = handle_file_operations(cipher, 'edit')
+                if edited_content:
+                    print("Zedytowana zawartość:")
+                    print(edited_content)
+                return edited_content
             else:
-                print("Proszę wybrać 1 lub 2")
+                print("Proszę wybrać 1, 2 lub 3")
         except ValueError:
             print("Proszę wprowadzić liczbę")
-        except IOError as e:
-            print(f"Błąd odczytu pliku: {e}")
 
 
 def save_to_file(text):
@@ -152,8 +153,64 @@ def benchmark_cipher(cipher_class, key, text, iterations=100):
     print(f"Całkowity czas deszyfrowania: {decrypt_time:.4f}s")
     print(f"Średni czas deszyfrowania: {decrypt_time / iterations:.6f}s")
 
+
+def edit_file_content(filename: str) -> str:
+    """Umożliwia edycję pliku tekstowego"""
+    try:
+        # Otwórz plik w domyślnym edytorze systemowym
+        if os.name == 'nt':  # Windows
+            os.system(f'notepad "{filename}"')
+        else:  # Linux/Mac
+            os.system(f'nano "{filename}"')
+
+        # Przeczytaj zmodyfikowaną zawartość
+        with open(filename, 'r', encoding='utf-8') as file:
+            return file.read()
+    except Exception as e:
+        raise FileOperationError(f"Błąd podczas edycji pliku: {e}")
+
+
+def handle_file_operations(cipher, operation: str):
+    """Obsługa operacji na plikach z możliwością edycji"""
+    filename = input("Podaj nazwę pliku: ")
+    if not os.path.exists(filename):
+        print("Plik nie istnieje")
+        return None
+
+    try:
+        # Deszyfrowanie przed edycją
+        if operation == 'edit':
+            encrypted_text = cipher.read_from_file(filename)
+            decrypted_text = cipher.decrypt(encrypted_text)
+
+            # Zapisz tymczasowo odszyfrowaną wersję do edycji
+            temp_file = "temp_decrypted.txt"
+            cipher.save_to_file(temp_file, decrypted_text)
+
+            # Edytuj plik
+            edited_text = edit_file_content(temp_file)
+
+            # Zaszyfruj i zapisz zmiany
+            encrypted_edited = cipher.encrypt(edited_text)
+            cipher.save_to_file(filename, encrypted_edited)
+            os.remove(temp_file)  # Usuń plik tymczasowy
+            print("Plik został pomyślnie edytowany i zaszyfrowany")
+            return edited_text
+
+        # Standardowe odczytanie pliku
+        elif operation == 'read':
+            content = cipher.read_from_file(filename)
+            return content
+
+    except CipherError as e:
+        print(f"Błąd operacji szyfrującej: {e}")
+    except Exception as e:
+        print(f"Błąd operacji na pliku: {e}")
+    return None
+
 def main():
     print("=== Szyfrator wiadomości tekstowych ===")
+    cipher = None
 
     while True:
         cipher_choice = get_cipher_choice()
@@ -161,7 +218,6 @@ def main():
             print("Do widzenia!")
             break
 
-        cipher = None
         try:
             if cipher_choice == 1:
                 cipher = CaesarCipher(get_key())
@@ -182,7 +238,7 @@ def main():
                 if operation_choice == 3:
                     break
 
-                text = get_text()
+                text = get_text(cipher)
                 if not text:
                     print("Tekst nie może być pusty")
                     continue
